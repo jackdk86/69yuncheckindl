@@ -9,26 +9,29 @@ from datetime import datetime, timedelta
 # =============== 工具函数 ===============
 
 def clean_checkin_msg(msg: str) -> str:
-    """精简签到消息：移除链接、广告、Emby等无关内容"""
-    # 过滤黑名单
+    """极致精简：剔除客服反馈提示、账号信息提示及所有广告"""
+    # 扩展黑名单，精准打击你提到的关键词
     junk_keywords = [
-        'Emby', 'emby', '媒体库', '公益服', '资源服', '线路', '节点', 
-        'http', 'https', 't.me', '订阅', '规则', '教程', '群组',
-        '🌍', '🔗', '🚀', '📢', '🎁', '💰', 'IPLC', 'IEPL', '更新订阅',
-        '基础服', '教学服', '服务:', '账号:', '密码:', '快如闪电'
+        '反馈工单', '网站客服', '卡顿', '速慢', '不流畅', '账号信息', 
+        '精简不显示', '⚠️', '📚', 'Emby', '媒体库', '公益服', '资源服',
+        'http', 't.me', '订阅', '教程', '群组', 'IPLC', 'IEPL'
     ]
     
     lines = msg.split('\n')
     filtered = []
     for line in lines:
         line = line.strip()
-        if not line or any(kw.lower() in line.lower() for kw in junk_keywords):
+        # 如果行中包含黑名单关键词，直接整行舍弃
+        if not line or any(kw in line for kw in junk_keywords):
             continue
-        # 移除可能残余的装饰线条
-        line = re.sub(r'[━─\-]{5,}', '', line)
+        
+        # 移除剩余行中的装饰性符号和多余空格
+        line = re.sub(r'[━─\-]{5,}', '', line).strip()
+        
         if line:
             filtered.append(line)
     
+    # 将多行结果合并为一行，用空格分隔，看起来更清爽
     return ' '.join(filtered).strip() if filtered else "签到成功"
 
 def mask_str(s: str, front=1, back=1, fill='*') -> str:
