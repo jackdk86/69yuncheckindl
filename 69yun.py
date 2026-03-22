@@ -33,24 +33,35 @@ def mask_str(s: str, front=1, back=1, fill='*') -> str:
 # =============== 核心逻辑 ===============
 
 def fetch_and_extract_info(domain: str, sess: requests.Session) -> str:
-    """提取到期时间、流量及订阅"""
+    """提取到期时间、流量，并生成真实订阅链接"""
     url = f"{domain}/user"
     try:
         resp = sess.get(url, timeout=15)
         html = resp.text
         if resp.status_code != 200: return "⚠️ 无法访问用户面板\n"
 
-        # 增强正则：匹配单双引号及空格
+        # 1. 提取时间与流量
         expire_match = re.search(r"['\"]Class_Expire['\"]:\s*['\"]([^'\"]*)['\"]", html)
         traffic_match = re.search(r"['\"]Unused_Traffic['\"]:\s*['\"]([^'\"]*)['\"]", html)
-        
         expire_date = expire_match.group(1).split(' ')[0] if expire_match else "未知"
         unused_traffic = traffic_match.group(1) if traffic_match else "未知"
+
+        # 2. 提取订阅 Token (关键步骤)
+        # 69Yun 通常在脚本中包含类似 /link/xxxxxxx?clash=1 的结构
+        token_match = re.search(r"/link/([a-zA-Z0-9]+)\?", html)
+        if token_match:
+            token = token_match.group(1)
+            # 构造 HTML 超链接
+            clash_link = f"{domain}/link/{token}?clash=1"
+            v2ray_link = f"{domain}/link/{token}?sub=3"
+            sub_info = f"🔗 <a href='{clash_link}'>Clash 订阅</a> | <a href='{v2ray_link}'>V2ray 订阅</a>"
+        else:
+            sub_info = "🔗 <b>Clash 订阅</b> | <b>V2ray 订阅</b> (未获取到Token)"
 
         return (
             f"📅 <b>到期时间:</b> {expire_date}\n"
             f"📊 <b>剩余流量:</b> {unused_traffic}\n"
-            f"🔗 <b>Clash 订阅</b> | <b>V2ray 订阅</b>\n"
+            f"{sub_info}\n"
         )
     except:
         return "⚠️ 信息提取异常\n"
@@ -88,7 +99,7 @@ def checkin(account: dict, domain: str, bot_token: str, chat_id: str):
         full_msg = (
             f"🔹 <b>地址:</b> {domain}\n"
             f"🔑 <b>账号:</b> {masked_user}\n"
-            f"🔒 <b>密码:</b> {masked_pass}\n"
+            f"🔒 <b>密码:</b> {masked_pass}\n"  # 确保这里引用了 masked_pass
             f"{user_info}\n"
             f"🎉 <b>签到结果:</b> ✅ {clean_msg}"
         )
