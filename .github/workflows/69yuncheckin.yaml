@@ -1,42 +1,35 @@
 name: Python CI 2
 
 on:
-  # 每天0点1分触发（UTC时间）
+  workflow_dispatch: # 手动触发
   schedule:
-    - cron: '1 0 * * *'
-
-  # 允许手动触发工作流
-  workflow_dispatch:
-
-  # 提交代码到指定分支时触发
-  push:
-    branches:
-      - main  # 只在主分支提交时触发
+    - cron: '0 19 * * *'  # 19:00 (UTC) + 8小时 = 03:00 (北京时间)
 
 jobs:
-  build:
+  checkin:
     runs-on: ubuntu-latest
-    env:
-      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-      CHAT_ID: ${{ secrets.CHAT_ID }}        # 这里设置可以用于多个账户
-      USER1: ${{ secrets.USER1 }}            # 用户1
-      PASS1: ${{ secrets.PASS1 }}            # 密码1
-      USER2: ${{ secrets.USER2 }}            # 用户2
-      PASS2: ${{ secrets.PASS2 }}            # 密码2
-      # 可以继续扩展更多用户和密码
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        # 将 v2 或 v3 改为 v4，支持更高版本的 Node.js
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        # 将 v2 改为 v5，这是目前最稳定的版本
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt  # 假设你的项目有 requirements.txt
+          pip install requests beautifulsoup4
 
-      - name: Run Python script
-        run: python 69yun.py  # 执行你的 Python 脚本
+      - name: Run Checkin Script
+        env:
+          # 确保你在仓库的 Settings -> Secrets 中配置了以下变量
+          DOMAIN: ${{ secrets.DOMAIN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          USER1: ${{ secrets.USER1 }}
+          PASS1: ${{ secrets.PASS1 }}
+        # 确保 your_script.py 替换为你实际的 Python 文件名
+        run: python main.py
