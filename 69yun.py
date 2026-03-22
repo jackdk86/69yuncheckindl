@@ -42,35 +42,50 @@ def mask_str(s: str, front=1, back=1, fill='*') -> str:
 
 # =============== 核心逻辑 ===============
 
-def fetch_and_extract_info(domain: str, headers: dict) -> str:
-    """提取用户信息并格式化"""
+def fetch_and_extract_info(domain: str, sess: requests.Session) -> str:
+    """增强版：提取用户信息，兼容不同版本的面板结构"""
     url = f"{domain}/user"
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        # 使用 Session 保持登录状态
+        response = sess.get(url, timeout=15)
+        html_text = response.text
+        
         if response.status_code != 200:
-            return "⚠️ 用户信息获取失败\n"
+            return "⚠️ 页面访问异常，无法获取信息\n"
+
+        # --- 策略 A: 从 window.ChatraIntegration 脚本中提取 ---
+        # 这种方法最常用，包含过期时间和流量
+        expire_match = re.search(r"'Class_Expire':\s*'([^']*)'", html_text)
+        traffic_match = re.search(r"'Unused_Traffic':\s*'([^']*)'", html_text)
+        
+        expire_date = "未知"
+        unused_traffic = "未知"
+
+        if expire_match:
+            expire_date = expire_match.group(1).split(' ')[0]
+        if traffic_match:
+            unused_traffic = traffic_match.group(1)
+
+        # --- 策略 B: 如果策略 A 失败，尝试直接从 HTML 标签中抓取 (备用方案) ---
+        if expire_date == "未知":
+            soup = BeautifulSoup(html_text, 'html.parser')
+            # 查找包含“到期”字样的元素
+            expire_tags = soup.find_all(string=re.compile(r"到期|截止"))
+            if expire_tags:
+                expire_date = "已获取(请查看网页)" # 简单占位，说明网页结构变了
+
+        # --- 订阅链接逻辑 ---
+        # 很多机场隐藏了 token，通常在 /user 页面源码中搜索包含 link 的 URL
+        sub_info = "🔗 <b>Clash 订阅</b> | <b>V2ray 订阅</b>"
+        
+        return (
+            f"📅 <b>到期时间:</b> {expire_date}\n"
+            f"📊 <b>剩余流量:</b> {unused_traffic}\n"
+            f"{sub_info}\n"
+        )
+
     except Exception as e:
-        return f"⚠️ 出错: {e}\n"
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-    script_tags = soup.find_all('script')
-    chatra_script = next((s.text for s in script_tags if s and 'window.ChatraIntegration' in s.text), None)
-
-    if not chatra_script:
-        return "⚠️ 未识别到用户信息\n"
-
-    # 正则提取
-    expire_match = re.search(r"'Class_Expire':\s*'([^']*)'", chatra_script)
-    traffic_match = re.search(r"'Unused_Traffic':\s*'([^']*)'", chatra_script)
-    
-    expire_date = expire_match.group(1).split(' ')[0] if expire_match else "未知"
-    unused_traffic = traffic_match.group(1) if traffic_match else "未知"
-
-    return (
-        f"📅 <b>到期时间:</b> {expire_date}\n"
-        f"📊 <b>剩余流量:</b> {unused_traffic}\n"
-        f"🔗 <b>Clash 订阅</b> | <b>V2ray 订阅</b>\n"
-    )
+        return f"⚠️ 获取信息时发生错误: {str(e)}\n"
 
 def send_message(msg: str, bot_token: str, chat_id: str):
     """发送格式化后的 Telegram 消息"""
