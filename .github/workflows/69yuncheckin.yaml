@@ -32,4 +32,4 @@ jobs:
           USER1: ${{ secrets.USER1 }}
           PASS1: ${{ secrets.PASS1 }}
         # 确保 your_script.py 替换为你实际的 Python 文件名
-        run: python main.py
+        run: python 69yun.py
